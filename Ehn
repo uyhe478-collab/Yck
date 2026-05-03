@@ -1,0 +1,145 @@
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local BackPack = Player:WaitForChild("Backpack")
+
+-- 1. สร้าง Tool ค้อน (Wrench)
+local Wrench = Instance.new("Tool", BackPack)
+Wrench.Name = "Engineer Wrench"
+local Handle = Instance.new("Part", Wrench)
+Handle.Name = "Handle"
+Handle.Size = Vector3.new(1, 4, 1)
+
+-- 2. UI Menu (จัดวางใหม่ให้สวยงาม)
+local ScreenGui = Instance.new("ScreenGui", Player.PlayerGui)
+ScreenGui.Enabled = false
+
+local function CreateBtn(name, pos, color)
+    local b = Instance.new("TextButton", ScreenGui)
+    b.Name = name
+    b.Size = UDim2.new(0, 140, 0, 45)
+    b.Position = pos
+    b.BackgroundColor3 = color
+    b.Text = name
+    b.TextColor3 = Color3.new(1,1,1)
+    b.Font = Enum.Font.GothamBold
+    return b
+end
+
+local SentryBtn = CreateBtn("BUILD SENTRY", UDim2.new(0.2, 0, 0.05, 0), Color3.fromRGB(200, 50, 50))
+local TeleBtn = CreateBtn("TELEPORTER (SET)", UDim2.new(0.4, 0, 0.05, 0), Color3.fromRGB(50, 200, 50))
+local DispBtn = CreateBtn("DISPENSER", UDim2.new(0.6, 0, 0.05, 0), Color3.fromRGB(50, 50, 200))
+
+local MySentry, MyDispenser = nil, nil
+local TeleA, TeleB = nil, nil
+
+-- === ระบบป้อมปืนแมงมุม v.2 (ยิง + จรวด + ขาตรง) ===
+function BuildSentry()
+    if MySentry then MySentry:Destroy() end
+    local Model = Instance.new("Model", game.Workspace)
+    local Base = Instance.new("Part", Model)
+    Base.Size = Vector3.new(3, 0.5, 3)
+    Base.Anchored = true
+    Base.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(0, -2, -8)
+
+    -- สร้างขา 4 ขา (ปรับองศาใหม่ให้ตรงสวย)
+    for i = 1, 4 do
+        local Leg = Instance.new("Part", Model)
+        Leg.Size = Vector3.new(0.4, 2.5, 0.4)
+        Leg.Anchored = true
+        local rot = math.rad((i-1) * 90 + 45)
+        Leg.CFrame = Base.CFrame * CFrame.new(math.cos(rot)*1.5, 0, math.sin(rot)*1.5) * CFrame.Angles(math.rad(-20), 0, 0)
+    end
+
+    local Head = Instance.new("Part", Model)
+    Head.Size = Vector3.new(2, 1.5, 2)
+    Head.BrickColor = BrickColor.new("Bright red")
+    Head.Anchored = true
+    Head.Position = Base.Position + Vector3.new(0, 1.5, 0)
+
+    spawn(function()
+        local count = 0
+        while Model.Parent do
+            task.wait(0.1)
+            count = count + 1
+            local Target = nil
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= Player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                    if (p.Character.HumanoidRootPart.Position - Head.Position).Magnitude < 70 then
+                        Target = p.Character.HumanoidRootPart
+                    end
+                end
+            end
+
+            if Target then
+                Head.CFrame = CFrame.lookAt(Head.Position, Target.Position)
+                Target.Parent.Humanoid:TakeDamage(8) -- ปืนกล
+                
+                -- ระบบจรวด (Missile) ทุก 2.5 วินาที
+                if count % 25 == 0 then
+                    local ex = Instance.new("Explosion", game.Workspace)
+                    ex.Position = Target.Position
+                    ex.BlastRadius = 5
+                end
+            end
+        end
+    end)
+    MySentry = Model
+end
+
+-- === ระบบวาร์ป (Teleporter 2 จุด) ===
+function SetTeleporter()
+    if not TeleA then
+        TeleA = Instance.new("Part", game.Workspace)
+        TeleA.Size = Vector3.new(4, 0.2, 4)
+        TeleA.BrickColor = BrickColor.new("Lime green")
+        TeleA.Anchored = true
+        TeleA.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(0, -2.5, 0)
+        TeleBtn.Text = "SET EXIT (B)"
+    elseif not TeleB then
+        TeleB = Instance.new("Part", game.Workspace)
+        TeleB.Size = Vector3.new(4, 0.2, 4)
+        TeleB.BrickColor = BrickColor.new("Deep orange")
+        TeleB.Anchored = true
+        TeleB.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(0, -2.5, 0)
+        TeleBtn.Text = "TELE READY"
+        
+        -- ทำงานเมื่อเหยียบ
+        TeleA.Touched:Connect(function(hit)
+            local h = hit.Parent:FindFirstChild("HumanoidRootPart")
+            if h then h.CFrame = TeleB.CFrame * CFrame.new(0, 3, 0) end
+        end)
+        TeleB.Touched:Connect(function(hit)
+            local h = hit.Parent:FindFirstChild("HumanoidRootPart")
+            if h then h.CFrame = TeleA.CFrame * CFrame.new(0, 3, 0) end
+        end)
+    else
+        TeleA:Destroy(); TeleB:Destroy(); TeleA = nil; TeleB = nil
+        TeleBtn.Text = "TELEPORTER (SET)"
+    end
+end
+
+-- === ระบบเครื่องฮีล (Dispenser) ===
+function BuildDispenser()
+    if MyDispenser then MyDispenser:Destroy() end
+    MyDispenser = Instance.new("Part", game.Workspace)
+    MyDispenser.Size = Vector3.new(3, 4, 2)
+    MyDispenser.BrickColor = BrickColor.new("Bright blue")
+    MyDispenser.Anchored = true
+    MyDispenser.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(-6, 0, -5)
+    
+    spawn(function()
+        while MyDispenser.Parent do
+            task.wait(1)
+            if (Character.HumanoidRootPart.Position - MyDispenser.Position).Magnitude < 12 then
+                Character.Humanoid.Health = math.min(Character.Humanoid.Health + 15, Character.Humanoid.MaxHealth)
+            end
+        end
+    end)
+end
+
+-- เชื่อมปุ่ม
+SentryBtn.MouseButton1Click:Connect(BuildSentry)
+TeleBtn.MouseButton1Click:Connect(SetTeleporter)
+DispBtn.MouseButton1Click:Connect(BuildDispenser)
+Wrench.Equipped:Connect(function() ScreenGui.Enabled = true end)
+Wrench.Unequipped:Connect(function() ScreenGui.Enabled = false end)
