@@ -1,0 +1,114 @@
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local BackPack = Player:WaitForChild("Backpack")
+
+-- 1. สร้างค้อน (Wrench)
+local Wrench = Instance.new("Tool")
+Wrench.Name = "Engineer Wrench"
+Wrench.RequiresHandle = true
+local Handle = Instance.new("Part")
+Handle.Name = "Handle"
+Handle.Size = Vector3.new(1, 4, 1)
+Handle.BrickColor = BrickColor.new("Dark stone grey")
+Handle.Parent = Wrench
+Wrench.Parent = BackPack
+
+-- 2. UI ปุ่มกด
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = Player:WaitForChild("PlayerGui")
+ScreenGui.Enabled = false
+local ActionBtn = Instance.new("TextButton")
+ActionBtn.Size = UDim2.new(0, 180, 0, 60)
+ActionBtn.Position = UDim2.new(0.5, -90, 0.05, 0)
+ActionBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+ActionBtn.Text = "BUILD SENTRY"
+ActionBtn.Parent = ScreenGui
+
+local MySentry = nil
+
+-- 3. ฟังก์ชันสร้างป้อม (แบบมีลำกล้อง)
+function CreateSentryModel()
+    local Model = Instance.new("Model", game.Workspace)
+    Model.Name = "SentryGun"
+
+    local Base = Instance.new("Part", Model)
+    Base.Name = "Base"
+    Base.Size = Vector3.new(4, 1, 4)
+    Base.BrickColor = BrickColor.new("Dark stone grey")
+    Base.Anchored = true
+    Base.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(0, -2, -6)
+
+    local Turret = Instance.new("Part", Model)
+    Turret.Name = "TurretHead"
+    Turret.Size = Vector3.new(2, 2, 2)
+    Turret.BrickColor = BrickColor.new("Bright red")
+    Turret.Anchored = true
+    Turret.Position = Base.Position + Vector3.new(0, 1.5, 0)
+
+    local Barrel = Instance.new("Part", Model)
+    Barrel.Name = "Barrel"
+    Barrel.Size = Vector3.new(1, 1, 3)
+    Barrel.BrickColor = BrickColor.new("Black")
+    Barrel.Anchored = true
+    Barrel.CFrame = Turret.CFrame * CFrame.new(0, 0, -1.5)
+
+    return Model, Turret, Barrel
+end
+
+-- 4. ระบบ AI ยิงคนอื่น
+function StartSentryAI(Model, Turret, Barrel)
+    spawn(function()
+        while Model.Parent do
+            wait(0.1)
+            local Target = nil
+            local MaxDist = 50 -- ระยะยิง
+
+            -- ค้นหาศัตรูที่ใกล้ที่สุด
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (p.Character.HumanoidRootPart.Position - Turret.Position).Magnitude
+                    if dist < MaxDist then
+                        Target = p.Character.HumanoidRootPart
+                        MaxDist = dist
+                    end
+                end
+            end
+
+            -- ถ้าเจอเป้าหมาย ให้หันไปยิง
+            if Target then
+                Turret.CFrame = CFrame.lookAt(Turret.Position, Target.Position)
+                Barrel.CFrame = Turret.CFrame * CFrame.new(0, 0, -1.5)
+                
+                -- สร้างกระสุน (Laser)
+                local Laser = Instance.new("Part", game.Workspace)
+                Laser.Size = Vector3.new(0.2, 0.2, 2)
+                Laser.Color = Color3.new(1, 1, 0)
+                Laser.Anchored = true
+                Laser.CanCollide = false
+                Laser.CFrame = CFrame.lookAt(Barrel.Position, Target.Position)
+                game.Debris:AddItem(Laser, 0.1)
+            end
+        end
+    end)
+end
+
+-- 5. เชื่อมต่อปุ่ม
+ActionBtn.MouseButton1Click:Connect(function()
+    if MySentry == nil then
+        local Model, Turret, Barrel = CreateSentryModel()
+        MySentry = Model
+        StartSentryAI(Model, Turret, Barrel)
+        ActionBtn.Text = "DESTROY (EXPLODE)"
+        ActionBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+    else
+        local exp = Instance.new("Explosion", game.Workspace)
+        exp.Position = MySentry.Base.Position
+        MySentry:Destroy()
+        MySentry = nil
+        ActionBtn.Text = "BUILD SENTRY"
+        ActionBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+    end
+end)
+
+Wrench.Equipped:Connect(function() ScreenGui.Enabled = true end)
+Wrench.Unequipped:Connect(function() ScreenGui.Enabled = false end)
