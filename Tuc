@@ -1,0 +1,111 @@
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local BackPack = Player:WaitForChild("Backpack")
+
+-- สร้าง Tool ค้อน (Wrench)
+local Wrench = Instance.new("Tool")
+Wrench.Name = "Engineer Wrench"
+Wrench.RequiresHandle = true
+local Handle = Instance.new("Part", Wrench)
+Handle.Name = "Handle"
+Handle.Size = Vector3.new(1, 4, 1)
+Wrench.Parent = BackPack
+
+-- UI ปุ่มกด (ตำแหน่งด้านบน)
+local ScreenGui = Instance.new("ScreenGui", Player.PlayerGui)
+ScreenGui.Enabled = false
+local ActionBtn = Instance.new("TextButton", ScreenGui)
+ActionBtn.Size = UDim2.new(0, 200, 0, 70)
+ActionBtn.Position = UDim2.new(0.5, -100, 0.05, 0)
+ActionBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+ActionBtn.Text = "BUILD SENTRY"
+
+local MySentry = nil
+
+-- ฟังก์ชันสร้างเลือด (Blood Effect)
+local function CreateBlood(pos)
+    local p = Instance.new("Part", game.Workspace)
+    p.Size = Vector3.new(0.5, 0.5, 0.5)
+    p.Transparency = 0.2
+    p.BrickColor = BrickColor.new("Really red")
+    p.Position = pos
+    p.CanCollide = false
+    local v = Instance.new("BodyVelocity", p)
+    v.Velocity = Vector3.new(math.random(-5,5), 10, math.random(-5,5))
+    game.Debris:AddItem(p, 0.5)
+end
+
+-- ฟังก์ชันสร้างป้อมและระบบยิง
+function BuildSentry()
+    local Model = Instance.new("Model", game.Workspace)
+    Model.Name = "Sentry_"..Player.Name -- ตั้งชื่อให้คนอื่นเห็นว่าเป็นของเรา
+
+    local Base = Instance.new("Part", Model)
+    Base.Name = "Base"
+    Base.Size = Vector3.new(4, 1, 4)
+    Base.Anchored = true
+    Base.BrickColor = BrickColor.new("Dark stone grey")
+    Base.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(0, -2, -6)
+
+    local Head = Instance.new("Part", Model)
+    Head.Size = Vector3.new(2, 2, 2)
+    Head.Anchored = true
+    Head.BrickColor = BrickColor.new("Bright red")
+    Head.Position = Base.Position + Vector3.new(0, 1.5, 0)
+
+    spawn(function()
+        while Model.Parent do
+            task.wait(0.15) -- ความเร็วในการยิง
+            local Target = nil
+            local MinDist = 60
+
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= Player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                    local dist = (p.Character.HumanoidRootPart.Position - Head.Position).Magnitude
+                    if dist < MinDist then
+                        Target = p.Character
+                        MinDist = dist
+                    end
+                end
+            end
+
+            if Target then
+                local targetPart = Target.HumanoidRootPart
+                Head.CFrame = CFrame.lookAt(Head.Position, targetPart.Position)
+                
+                -- ระบบทำดาเมจและเลือด (Damage & Blood)
+                Target.Humanoid:TakeDamage(15) -- ยิงทีละ 15 (ตายไวมาก)
+                CreateBlood(targetPart.Position)
+
+                -- เอฟเฟกต์เลเซอร์
+                local Beam = Instance.new("Part", game.Workspace)
+                Beam.Anchored = true
+                Beam.CanCollide = false
+                Beam.Color = Color3.new(1, 0, 0)
+                Beam.Size = Vector3.new(0.2, 0.2, (Head.Position - targetPart.Position).Magnitude)
+                Beam.CFrame = CFrame.lookAt(Head.Position, targetPart.Position) * CFrame.new(0, 0, -Beam.Size.Z/2)
+                game.Debris:AddItem(Beam, 0.05)
+            end
+        end
+    end)
+    return Model
+end
+
+-- สลับปุ่ม Build/Destroy
+ActionBtn.MouseButton1Click:Connect(function()
+    if not MySentry then
+        MySentry = BuildSentry()
+        ActionBtn.Text = "DESTROY (EXPLODE)"
+        ActionBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    else
+        local ex = Instance.new("Explosion", game.Workspace)
+        ex.Position = MySentry.Base.Position
+        MySentry:Destroy()
+        MySentry = nil
+        ActionBtn.Text = "BUILD SENTRY"
+        ActionBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    end
+end)
+
+Wrench.Equipped:Connect(function() ScreenGui.Enabled = true end)
+Wrench.Unequipped:Connect(function() ScreenGui.Enabled = false end)
