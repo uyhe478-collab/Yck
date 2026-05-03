@@ -1,0 +1,83 @@
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Mouse = Player:GetMouse()
+
+-- 1. สร้าง Tool (PDA หรือโทรศัพท์สร้างของ)
+local Tool = Instance.new("Tool", Player.Backpack)
+Tool.Name = "Construction PDA"
+local Handle = Instance.new("Part", Tool)
+Handle.Name = "Handle"
+Handle.Size = Vector3.new(1, 1, 1)
+
+-- 2. ตัวแปรสถานะ
+local IsCarrying = false
+local Blueprint = nil
+local CurrentBuilding = nil
+
+-- 3. ฟังก์ชันสร้าง Blueprint (ร่างสีเขียว)
+local function CreateBlueprint()
+    local bp = Instance.new("Part")
+    bp.Size = Vector3.new(4, 4, 4) -- ขนาดป้อม
+    bp.Color = Color3.new(0, 1, 0)
+    bp.Transparency = 0.5
+    bp.CanCollide = false
+    bp.Anchored = true
+    bp.Parent = game.Workspace
+    return bp
+end
+
+-- 4. ระบบ Update ร่างสีเขียวตามเมาส์/ทิศทางตัวละคร
+game:GetService("RunService").RenderStepped:Connect(function()
+    if IsCarrying and Blueprint then
+        -- วางร่างสีเขียวไว้ข้างหน้าตัวละคร
+        local pos = Character.HumanoidRootPart.CFrame * CFrame.new(0, -1, -7)
+        Blueprint.CFrame = pos
+    end
+end)
+
+-- 5. UI ปุ่มกดวาง (แถบสี่เหลี่ยมสีเขียวด้านบน)
+local ScreenGui = Instance.new("ScreenGui", Player.PlayerGui)
+local BuildBtn = Instance.new("TextButton", ScreenGui)
+BuildBtn.Size = UDim2.new(0, 300, 0, 60)
+BuildBtn.Position = UDim2.new(0.5, -150, 0.05, 0)
+BuildBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+BuildBtn.Text = "PLACE BUILDING"
+BuildBtn.Visible = false
+
+-- 6. ระบบการทำงาน
+Tool.Equipped:Connect(function()
+    Player.CameraMode = Enum.CameraMode.LockFirstPerson -- มุมมองบุคคลที่ 1
+    IsCarrying = true
+    Blueprint = CreateBlueprint()
+    BuildBtn.Visible = true
+end)
+
+Tool.Unequipped:Connect(function()
+    Player.CameraMode = Enum.CameraMode.Classic
+    IsCarrying = false
+    if Blueprint then Blueprint:Destroy() end
+    BuildBtn.Visible = false
+end)
+
+-- เมื่อกดปุ่ม "PLACE BUILDING" (แถบเขียวข้างบน)
+BuildBtn.MouseButton1Click:Connect(function()
+    if IsCarrying and Blueprint then
+        -- สร้างป้อมจริงตรงจุดร่างสีเขียว
+        local Sentry = Instance.new("Model", game.Workspace)
+        local Main = Instance.new("Part", Sentry)
+        Main.Size = Vector3.new(4, 4, 4)
+        Main.CFrame = Blueprint.CFrame
+        Main.Anchored = true
+        Main.BrickColor = BrickColor.new("Bright red")
+        
+        -- เอฟเฟกต์ควันตอนวาง
+        local Smoke = Instance.new("Smoke", Main)
+        game.Debris:AddItem(Smoke, 1)
+
+        -- วางเสร็จแล้วทำลายร่างสีเขียวและปิดการแบก
+        Blueprint:Destroy()
+        IsCarrying = false
+        BuildBtn.Visible = false
+        print("Sentry Built!")
+    end
+end)
