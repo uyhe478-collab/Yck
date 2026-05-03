@@ -1,0 +1,92 @@
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local Camera = game.Workspace.CurrentCamera
+
+-- 1. ระบบอมตะ (ป้องกันคนตายจริง)
+Humanoid.HealthChanged:Connect(function(health)
+    if health < 100 then
+        Humanoid.Health = 100
+    end
+end)
+
+-- 2. Tool ค้อน Engineer
+local Wrench = Instance.new("Tool", Player.Backpack)
+Wrench.Name = "Engineer Wrench"
+local Handle = Instance.new("Part", Wrench)
+Handle.Size = Vector3.new(1, 4, 1)
+Handle.Name = "Handle"
+
+-- 3. ระบบวาร์ปแบบมี % ชาร์จ
+local TeleA, TeleB = nil, nil
+local Charge = 0
+local CanTele = true
+
+local function BuildTele()
+    if not TeleA then
+        TeleA = Instance.new("Part", workspace)
+        TeleA.Name = "Tele_Entry"; TeleA.Size = Vector3.new(4, 0.5, 4)
+        TeleA.BrickColor = BrickColor.new("Lime green"); TeleA.Anchored = true
+        TeleA.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(0, -2.5, -5)
+    elseif not TeleB then
+        TeleB = Instance.new("Part", workspace)
+        TeleB.Name = "Tele_Exit"; TeleB.Size = Vector3.new(4, 0.5, 4)
+        TeleB.BrickColor = BrickColor.new("Deep orange"); TeleB.Anchored = true
+        TeleB.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(0, -2.5, -5)
+        
+        -- ระบบเช็คเปอร์เซ็นต์วาร์ป
+        TeleA.Touched:Connect(function(hit)
+            if CanTele and hit.Parent:FindFirstChild("HumanoidRootPart") then
+                CanTele = false
+                hit.Parent.HumanoidRootPart.CFrame = TeleB.CFrame * CFrame.new(0, 3, 0)
+                
+                -- เริ่มชาร์จ 0-100%
+                Charge = 0
+                for i = 1, 100 do
+                    task.wait(0.05) -- ความเร็วในการชาร์จ
+                    Charge = i
+                    print("Teleporter Charging: " .. Charge .. "%")
+                end
+                CanTele = true
+            end
+        end)
+    end
+end
+
+-- 4. เครื่องฮีล (Dispenser) ดีไซน์ใหม่
+local function BuildDispenser()
+    local Disp = Instance.new("Model", workspace)
+    local Body = Instance.new("Part", Disp)
+    Body.Size = Vector3.new(3, 5, 2); Body.Anchored = true
+    Body.BrickColor = BrickColor.new("Bright blue")
+    Body.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(6, 0, -5)
+    
+    -- เพิ่มเอฟเฟกต์แสงให้ดูเท่
+    local Light = Instance.new("PointLight", Body)
+    Light.Range = 15; Light.Brightness = 2; Light.Color = Color3.new(0, 0.5, 1)
+
+    spawn(function()
+        while Disp.Parent do
+            task.wait(1)
+            -- ฮีลทุกคนที่อยู่ใกล้
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p.Character and (p.Character.HumanoidRootPart.Position - Body.Position).Magnitude < 15 then
+                    p.Character.Humanoid.Health = 100
+                end
+            end
+        end
+    end)
+end
+
+-- 5. มุมมองบุคคลที่หนึ่ง (First Person) เมื่อถือค้อน
+Wrench.Equipped:Connect(function()
+    Player.CameraMode = Enum.CameraMode.LockFirstPerson
+end)
+
+Wrench.Unequipped:Connect(function()
+    Player.CameraMode = Enum.CameraMode.Classic
+end)
+
+-- เรียกใช้งานฟังก์ชัน (คุณสามารถเชื่อมกับปุ่ม UI เดิมได้เลย)
+-- BuildTele() -- เรียกใช้เพื่อสร้างวาร์ป
+-- BuildDispenser() -- เรียกใช้เพื่อสร้างเครื่องฮีล
