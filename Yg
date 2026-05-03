@@ -1,0 +1,124 @@
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local BackPack = Player:WaitForChild("Backpack")
+
+-- 1. สร้างค้อน Wrench
+local Wrench = Instance.new("Tool", BackPack)
+Wrench.Name = "Engineer Wrench"
+local Handle = Instance.new("Part", Wrench)
+Handle.Name = "Handle"
+Handle.Size = Vector3.new(1, 4, 1)
+
+-- 2. UI เมนู (บนหน้าจอ)
+local ScreenGui = Instance.new("ScreenGui", Player.PlayerGui)
+ScreenGui.Enabled = false
+
+local SentryBtn = Instance.new("TextButton", ScreenGui)
+SentryBtn.Size = UDim2.new(0, 150, 0, 50)
+SentryBtn.Position = UDim2.new(0.3, 0, 0.05, 0)
+SentryBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+SentryBtn.Text = "Build Sentry (Gun)"
+
+local HealerBtn = Instance.new("TextButton", ScreenGui)
+HealerBtn.Size = UDim2.new(0, 150, 0, 50)
+HealerBtn.Position = UDim2.new(0.55, 0, 0.05, 0)
+HealerBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 200)
+HealerBtn.Text = "Build Dispenser (Heal)"
+
+local CurrentSentry = nil
+local CurrentHealer = nil
+
+-- ฟังก์ชันสร้างเลือด
+function BloodEffect(pos)
+    local p = Instance.new("Part", game.Workspace)
+    p.Size = Vector3.new(0.4, 0.4, 0.4)
+    p.BrickColor = BrickColor.new("Really red")
+    p.Position = pos
+    p.CanCollide = false
+    game.Debris:AddItem(p, 0.5)
+end
+
+-- === ระบบป้อมปืน 4 ขา (ยิง + จรวด) ===
+function BuildSentry()
+    if CurrentSentry then CurrentSentry:Destroy() end
+    local Model = Instance.new("Model", game.Workspace)
+    Model.Name = "Sentry_4Legs"
+    
+    local MainBase = Instance.new("Part", Model)
+    MainBase.Size = Vector3.new(3, 1, 3)
+    MainBase.Anchored = true
+    MainBase.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(0, -1, -7)
+
+    -- สร้างขา 4 ขา
+    for i = 1, 4 do
+        local Leg = Instance.new("Part", Model)
+        Leg.Size = Vector3.new(0.5, 3, 0.5)
+        Leg.Anchored = true
+        local angle = math.rad(i * 90)
+        Leg.CFrame = MainBase.CFrame * CFrame.new(math.cos(angle)*2, -1, math.sin(angle)*2) * CFrame.Angles(0,0,0.5)
+    end
+
+    local Head = Instance.new("Part", Model)
+    Head.Size = Vector3.new(2, 2, 2)
+    Head.BrickColor = BrickColor.new("Bright red")
+    Head.Anchored = true
+    Head.Position = MainBase.Position + Vector3.new(0, 2, 0)
+
+    spawn(function()
+        local tickCount = 0
+        while Model.Parent do
+            task.wait(0.1)
+            tickCount = tickCount + 1
+            local Target = nil
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= Player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                    if (p.Character.HumanoidRootPart.Position - Head.Position).Magnitude < 60 then
+                        Target = p.Character.HumanoidRootPart
+                    end
+                end
+            end
+
+            if Target then
+                Head.CFrame = CFrame.lookAt(Head.Position, Target.Position)
+                -- ยิงปืนปกติ
+                Target.Parent.Humanoid:TakeDamage(10)
+                BloodEffect(Target.Position)
+                
+                -- ยิงจรวด (ทุกๆ 2 วินาที)
+                if tickCount % 20 == 0 then
+                    local exp = Instance.new("Explosion", game.Workspace)
+                    exp.Position = Target.Position
+                    Target.Parent.Humanoid:TakeDamage(30)
+                end
+            end
+        end
+    end)
+    CurrentSentry = Model
+end
+
+-- === ระบบเครื่องฮีล (Dispenser) ===
+function BuildHealer()
+    if CurrentHealer then CurrentHealer:Destroy() end
+    local Model = Instance.new("Model", game.Workspace)
+    local Box = Instance.new("Part", Model)
+    Box.Size = Vector3.new(3, 5, 2)
+    Box.BrickColor = BrickColor.new("Bright blue")
+    Box.Anchored = true
+    Box.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(5, 1, -5)
+
+    spawn(function()
+        while Model.Parent do
+            task.wait(1)
+            if (Character.HumanoidRootPart.Position - Box.Position).Magnitude < 15 then
+                Character.Humanoid.Health = math.min(Character.Humanoid.Health + 10, Character.Humanoid.MaxHealth)
+            end
+        end
+    end)
+    CurrentHealer = Model
+end
+
+-- เชื่อมปุ่ม
+SentryBtn.MouseButton1Click:Connect(BuildSentry)
+HealerBtn.MouseButton1Click:Connect(BuildHealer)
+Wrench.Equipped:Connect(function() ScreenGui.Enabled = true end)
+Wrench.Unequipped:Connect(function() ScreenGui.Enabled = false end)
