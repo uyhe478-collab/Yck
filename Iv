@@ -1,0 +1,72 @@
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local BackPack = Player:WaitForChild("Backpack")
+
+-- 1. สร้างค้อน (Wrench Tool)
+local Wrench = Instance.new("Tool")
+Wrench.Name = "Engineer Wrench"
+Wrench.RequiresHandle = true
+
+local Handle = Instance.new("Part")
+Handle.Name = "Handle"
+Handle.Size = Vector3.new(1, 4, 1)
+Handle.BrickColor = BrickColor.new("Dark stone grey")
+Handle.Parent = Wrench
+Wrench.Parent = BackPack
+
+-- 2. สร้าง UI สำหรับปุ่มควบคุม
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = Player:WaitForChild("PlayerGui")
+ScreenGui.Enabled = false -- ปิดไว้ก่อน จะเปิดเมื่อถือค้อน
+
+local ActionBtn = Instance.new("TextButton")
+ActionBtn.Size = UDim2.new(0, 150, 0, 60)
+ActionBtn.Position = UDim2.new(0.5, -75, 0.1, 0) -- ไว้ด้านบนตามที่ขอ
+ActionBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
+ActionBtn.TextSize = 20
+ActionBtn.Text = "BUILD SENTRY"
+ActionBtn.Parent = ScreenGui
+
+-- 3. ระบบการทำงาน (Logic)
+local MySentry = nil
+
+-- ฟังก์ชันระเบิดป้อม
+local function ExplodeSentry()
+    if MySentry then
+        local Explosion = Instance.new("Explosion")
+        Explosion.Position = MySentry.Position
+        Explosion.Parent = game.Workspace
+        MySentry:Destroy()
+        MySentry = nil
+        ActionBtn.Text = "BUILD SENTRY"
+        ActionBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+    end
+end
+
+-- เมื่อกดปุ่ม
+ActionBtn.MouseButton1Click:Connect(function()
+    if MySentry == nil then
+        -- สร้างป้อม
+        MySentry = Instance.new("Part")
+        MySentry.Name = "SentryGun"
+        MySentry.Size = Vector3.new(3, 3, 3)
+        MySentry.BrickColor = BrickColor.new("Bright red")
+        MySentry.Material = Enum.Material.Metal
+        MySentry.Parent = game.Workspace
+        MySentry.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -6)
+        
+        ActionBtn.Text = "DESTROY (EXPLODE)"
+        ActionBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+    else
+        ExplodeSentry()
+    end
+end)
+
+-- 4. เปิด/ปิด UI ตามการถือค้อน
+Wrench.Equipped:Connect(function()
+    ScreenGui.Enabled = true
+end)
+
+Wrench.Unequipped:Connect(function()
+    ScreenGui.Enabled = false
+end)
